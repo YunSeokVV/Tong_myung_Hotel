@@ -527,6 +527,8 @@ class _Booking_roomState extends State<Booking_room> {
     int supply_;
     // 게스트하우스의 침대개수
     int bed;
+    //Users 컬렉션에서 "인원" 필드에 추가하기위해 사용될 변수다.
+    String customer_supply_toserver;
 
     //List 안의 Map 을 잠시담기위한 map
     Map map1;
@@ -541,6 +543,8 @@ class _Booking_roomState extends State<Booking_room> {
     print(Note.day_docu_id.length);
     Note.day_docu_id.forEach((k,v) => print('${k}: ${v}'));
 
+    print(widget.supply);
+    customer_supply_toserver=widget.supply.substring(0,1);
 
 
     //서버에 오늘날짜가 없는경우의 조건이다.
@@ -615,7 +619,6 @@ class _Booking_roomState extends State<Booking_room> {
 
     print(widget.supply);
     supply_=int.parse(widget.supply.substring(0,1));
-
     print(supply_);
 
     //check point
@@ -748,7 +751,7 @@ class _Booking_roomState extends State<Booking_room> {
       room_type_user_collection="10";
     }
 
-    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection});
+    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection,"인원":customer_supply_toserver});
     }
 
     //서버에 오늘날짜가 있는 경우의 조건이다.
@@ -1604,9 +1607,25 @@ class _Booking_roomState extends State<Booking_room> {
       room_type_user_collection="10";
     }
 
+    String guest_supply="1";
+
+
+
+//    if(field_name=="man_two_guesthouse" || field_name=="woman_two_guesthouse"){
+//      guest_supply="2";
+//    }
+//    else if(field_name=="man_three_guesthouse" || field_name=="woman_three_guesthouse"){
+//      guest_supply="3";
+//    }
+//    else if(field_name=="woman_four_guesthouse"){
+//      guest_supply="4";
+//    }
+
     print("CurrentUser.login_user_uid 의 값 서버에 방이 있는경우");
     print(CurrentUser.login_user_uid);
-    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection});
+    print("customer_supply_toserver");
+    print(customer_supply_toserver);
+    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection,"인원":customer_supply_toserver});
     };
 
     Navigator.pop(context);

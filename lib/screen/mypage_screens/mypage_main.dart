@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:tong_myung_hotel/service/firebase_firestore_service.dart.dart';
 import 'package:tong_myung_hotel/state/authentication.dart';
 import 'package:tong_myung_hotel/screen/sign_screens/sign_main.dart';
 import 'package:tong_myung_hotel/state/auth_services.dart';
@@ -113,16 +114,26 @@ class _MyPageState extends State<MyPage> {
     Firestore.instance.collection('Users').document(_uid).delete();
   }
 
-  Future updateUser(String email, String name) async {
+  Future updateEmail(String email) async{
 
     FirebaseUser user = await FirebaseAuth.instance.currentUser();
     var userUpdateInfo = UserUpdateInfo();
     user.updateEmail(email);
+    await user.updateProfile(userUpdateInfo);
+    await user.reload();
+  }
+
+
+  Future updateUser(String name) async {
+
+    FirebaseUser user = await FirebaseAuth.instance.currentUser();
+    var userUpdateInfo = UserUpdateInfo();
+//    user.updateEmail(email);
     userUpdateInfo.displayName = name;
-    Firestore.instance
-        .collection('Users')
-        .document(_uid)
-        .updateData({'name': name, 'email': email});
+//    Firestore.instance
+//        .collection('Users')
+//        .document(_uid)
+//        .updateData({'name': name, 'email': email});
     await user.updateProfile(userUpdateInfo);
     await user.reload();
   }
@@ -140,7 +151,7 @@ class _MyPageState extends State<MyPage> {
     FirebaseUser user;
 
     FirebaseAuth _auth = FirebaseAuth.instance;
-
+    FirebaseFirestoreService db = new FirebaseFirestoreService();
 
 
     var height = MediaQuery.of(context).size.height;
@@ -156,7 +167,7 @@ class _MyPageState extends State<MyPage> {
             _name = snapshot.data.displayName;
             _email = snapshot.data.email;
 
-            Firestore.instance
+            Firestore.instance //현재 로그인 된 Uid의 Users 문서의 필드 값을 가져옴
                 .collection('Users')
                 .document(_uid)
                 .get()
@@ -166,12 +177,16 @@ class _MyPageState extends State<MyPage> {
               _checkIn = ds.data['입실일'];
               _checkOut = ds.data['퇴실일'];
               _phone  = ds.data['phone'];
+              _people = ds.data['인원'];
+
               if(_book=='1' || _book=='2'|| _book=='7'|| _book=='8') // 방 유형 번호에 따른 사진출력
                 _imageUrl = 'gs://tu-domi.appspot.com/room_type/three_room.png';
               else if(_book =='3'||_book=='4'||_book=='9'||_book=='10')
                 _imageUrl = 'gs://tu-domi.appspot.com/room_type/two_room.png';
               else if(_book =='5'||_book=='6')
                 _imageUrl = 'gs://tu-domi.appspot.com/room_type/four_room.png';
+
+
 
               switch(_book) { // 방 유형 번호에 따른 방 이름 지정
                 case '1':
@@ -220,9 +235,10 @@ class _MyPageState extends State<MyPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  SizedBox(height: height/40,),
                   Text(
                     'MyPage',
-                    style: TextStyle(fontSize: 60),
+                    style: TextStyle(fontSize: 60,color: green2,fontFamily: 'Balsamiq'),
                   ),
                   SizedBox(height: height / 20),
                   Container(
@@ -329,7 +345,9 @@ class _MyPageState extends State<MyPage> {
                                               .document(_uid)
                                               .updateData(
                                               {'name': _usernameController.text});
-
+                                          updateUser(
+                                            _usernameController.text,
+                                          );
                                           //updateUserName(_usernameController.text, user);
                                         }
                                         if (_emailController.text.isNotEmpty && _emailController.text != _email){
@@ -337,8 +355,8 @@ class _MyPageState extends State<MyPage> {
                                               .collection('Users')
                                               .document(_uid)
                                               .updateData({'email': _emailController.text});
-
-                                          Auth().changeEmail(_emailController.text);
+                                          updateEmail(_emailController.text);
+                                         // Auth().changeEmail(_emailController.text);
                                           //await _auth.signOut();
 //                            Navigator.of(context).popUntil(ModalRoute.withName('/home'));
 //                                          Navigator.of(context,
@@ -360,10 +378,11 @@ class _MyPageState extends State<MyPage> {
                                               .document(_uid)
                                               .updateData({'phone': _phoneController.text});
 //
-                                        updateUser(
-                                            _emailController.text,
-                                            _usernameController.text,
-                                           );
+//
+//                                        updateEmail(_emailController.text);
+//                                        updateUser(
+//                                            _usernameController.text,
+//                                           );
 
                                         _isEnabled = false; // 텍스트 수정 불가하게게
 
@@ -506,7 +525,7 @@ class _MyPageState extends State<MyPage> {
                                                       children:[
                                                         Text('인원 : ',style: TextStyle(fontWeight: FontWeight.bold),),
                                                         SizedBox(width: width/80,),
-                                                        Text('몰라'),
+                                                        Text('$_people명'),
                                                       ]),
                                                   SizedBox(height: height/40,),
                                                   Row( //방 유형
@@ -551,7 +570,7 @@ class _MyPageState extends State<MyPage> {
                                                           },
                                                         ),
                                                       ),
-                                                      SizedBox(width: width/20,),
+                                                      SizedBox(height: height/80,),
 
 
 
@@ -587,7 +606,7 @@ class _MyPageState extends State<MyPage> {
                       onPressed: () {
                         showDialog(
                             context: context,
-                            barrierDismissible: false,
+                            barrierDismissible: true,
                             builder: (BuildContext context) {
                               return AlertDialog(
                                 title: Text('회원탈퇴'),
@@ -642,7 +661,7 @@ class _MyPageState extends State<MyPage> {
                           onPressed: () async {
                             showDialog(
                                 context: context,
-                                barrierDismissible: false,
+                                barrierDismissible: true,
                                 builder: (BuildContext context) {
                                   return AlertDialog(
                                    // title: Text('로그아웃'),
