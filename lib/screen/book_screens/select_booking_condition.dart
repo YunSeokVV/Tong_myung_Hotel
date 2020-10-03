@@ -46,6 +46,7 @@ class _Book_room_stfulState extends State<Book_room_stful> {
   //edit this
   bool selected = true;
 
+
   //사용자가 설정하는 퇴실날짜 시간이다.
   DateTime _dateTime_exit_room_time;
 
@@ -149,7 +150,17 @@ class _Book_room_stfulState extends State<Book_room_stful> {
 
 
     setState(() {
-      _currentPage = index;
+      if(index==2){
+        _currentPage=3;
+        print("_currentPage1");
+        print(_currentPage);
+      }
+      else{
+        _currentPage = index;
+        print("_currentPage2");
+        print(_currentPage);
+      }
+
     });
 
   }
@@ -181,6 +192,9 @@ class _Book_room_stfulState extends State<Book_room_stful> {
     //사용자가 입력한 입실날짜와 퇴실날짜의 차이를 표현하는 변수다. (int 형)
     int time_differ_Integer;
 
+    // 사용자가 몇일이나 묶는지 확인할 때 조건문에 필요한 변수
+    int idx;
+    String gap;
     return Scaffold(
         resizeToAvoidBottomPadding: false,
       body: SingleChildScrollView(
@@ -299,6 +313,7 @@ class _Book_room_stfulState extends State<Book_room_stful> {
                                   onChanged: (value){
                                     setState((){
 
+
                                       _gender=value;
                                       gender="남자";
 
@@ -323,6 +338,7 @@ class _Book_room_stfulState extends State<Book_room_stful> {
                                   groupValue: _gender,
                                   onChanged: (value){
                                     setState((){
+
 
                                       _gender=value;
                                       gender="여자";
@@ -571,22 +587,28 @@ class _Book_room_stfulState extends State<Book_room_stful> {
                                 child: Text('검색하기', style: TextStyle(fontSize: 24)),
                                 onPressed: () =>
                                 {
-                                time_differ=_dateTime_exit_room_time.difference(_dateTime_enter_room_time).toString().substring(0, 2),
+                                time_differ=_dateTime_exit_room_time.difference(_dateTime_enter_room_time).toString(),
+                                  print(time_differ),
+                                 idx = time_differ.indexOf(":"),
+                                 gap = time_differ.substring(0, idx),
+                              time_differ_Integer=int.parse(gap),
+                                time_differ_Integer=time_differ_Integer~/24,
+                                print("퇴실일과 입실일의 차이"),
+                                print(time_differ_Integer),
 
-                                time_differ_Integer=int.parse(time_differ),
 
-                                print("로그찍기"),
-                                print(_dateTime_enter_room_time),
-                                print(_dateTime_exit_room_time),
 
                                 Navigator.push(
                                 context,
                                   MaterialPageRoute(builder: (context) =>
 
 
+
+
                                       Booking_room(
 
-                                          guest_gender: gender.toString(),
+                                          search_condition: widget.type,
+                                          guest_gender: _gender.toString(),
                                           exit_room_time: _dateTime_exit_room_time.toString().substring(0, 10),
                                           enter_room_time: _dateTime_enter_room_time.toString().substring(0, 10),
                                           room_type: _currentPage.toString(),

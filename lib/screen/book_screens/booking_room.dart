@@ -5,15 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:tong_myung_hotel/method_variable_collection.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tong_myung_hotel/model/note.dart';
+import 'package:tong_myung_hotel/screen/book_screens/hotel_motel_choice.dart';
 import 'package:tong_myung_hotel/service/firebase_firestore_service.dart.dart';
 
 import 'dart:convert';
 
 import 'package:tong_myung_hotel/state/current_State.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 
 class Booking_room extends StatefulWidget {
 
+  String search_condition;
   String guest_gender;
   String exit_room_time;
   String enter_room_time;
@@ -22,6 +25,7 @@ class Booking_room extends StatefulWidget {
   int time_differ;
 
   Booking_room({
+    this.search_condition,
     this.guest_gender,
     this.exit_room_time,
     this.enter_room_time,
@@ -36,216 +40,74 @@ class Booking_room extends StatefulWidget {
 
 class _Booking_roomState extends State<Booking_room> {
 
-  //Users 컬렉션에 입실시간 데이터를 담기위한 변수다.
-  String entime_user_collection;
+  String customer_choice; //손님이 설정한 호/게하 방식 및 안원수를 담는 변수다.
+  String guest_gender;  //고객의 성별
+  String guest_roomtype; //고객이 이전 화면에서 설정한 방의 이미지다.
+  int remain_seat;  //예약자가 원하는 방의 남은 개수
+  String stop; //서버와 예약관련 통신을 중단시킬지 판별해주는 변수
+  String users_room_type_for_update_data; //사용자의 예약정보를 수정할 떄 "방 유형" 필드에 들어갈 값이다.
 
-  //Users 컬렉션에 퇴실시간 데이터를 담기위한 변수다.
-  String left_user_collection;
-
-  //Users 컬렉션에 방유형을표현하기위한 변수다.
-  String room_type_user_collection;
-
-  //리스트뷰에 들어가는 List 인것같다. 안드로이드 때 RecyclerView 에 넣었던 List 와 유사한것 아닐까?
-  List<Note> items;
-
-  //StreamSubscription : A subscription(구독) on events from a [Stream].
-  //QuerySnapshot : A QuerySnapshot contains zero or more DocumentSnapshot objects.
-  //https://software-creator.tistory.com/9
-  //스트림은 데이터나 이벤트가 드나드는 통로라고한다. 스트림을 통해서 비동기작업을 하는데 여기서는 아마 파이어베이스 서버와 데이터를 주고받는 작업을 하는듯 하다.
-  StreamSubscription<QuerySnapshot> noteSub;
-
-  //DB에 데이터를 추가하기위해 존재하는 객체이다.
-  FirebaseFirestoreService db = new FirebaseFirestoreService();
-
-  Firestore firestore = Firestore.instance;
-
-  //손님의 입실시간을 표현하는 변수다.
-  var enter_room_time;
-
-  //손님의 퇴실시간을 표현하는 변수다.
-  var after_room_time;
-
-  //서버로부터 데이터 (호텔,모텔에 남은 자리수)를 받아오기위한 코드이다.
-  String remain_seat = "";
-
-  //고객이 설정한 방의 타입
-  var room_type_image;
-
-  // 호텔,게하에서 남아있는 좌석을 담는 변수이다.
-  int update_seat;
-
-  //남,녀 방의유형에 따라 DB에서 불러와야하는 필드가 다르기때문에 아래의 조건문으로 필드의 이름을 설정해준다.
-  String field_name;
-
-  //사용자가 게스트하우식을 설정했을때 설정한 사람수이다.
-  int supply;
-
-  //DB에 금일날짜가 없는경우 Map 형태로 만들어줘야한다. 서버에 들어갈 map 을 위해 존재하는 변수다.
-  String make_map_str;
-  var make_map;
-
-  //현재시간을 년,월,일 까지만 포함해주는 변수다.
-  String now_time;
-
-  //퇴실시간과 입실시간의 차이가 몇일 차이나는지 담아주는 변수
-  int differ_day;
-  //위의 녀석을 실수형으로 전환한거
-  double differ_day_;
-
-  //사용자가 입실한 시간이다. 조건문안에서 딱 한번 쓰인다.
-  var enter_room_time_;
-
-  // 사용자가 선택한 침실의 남은자리수가 0개인지 찾기위해 존재하는 list 이다.
-  List<String> check_absent_list = [];
-
-  // 게스트하우스에 유저의 숫자가 0명이하인지 아닌지 체크하기위한 변수
-  String check="빈방존재";
+  //토스트메세지를 한번만 띄워주기위한 변수
+  int just_one=0;
 
   @override
   void initState() {
     super.initState();
+
+    //이전 화면에서 받아온 데이터들을 로그로 출력했다.
+    print("이전 화면에서 받아온 데이터들을 로그로 출력했다.");
     print(widget.time_differ);
+    print(widget.room_type);
+    print(widget.supply);
+    print(widget.search_condition);
+    print(widget.guest_gender);
+    print(widget.enter_room_time);
+    print(widget.exit_room_time);
 
-    //손님의 입실시간을 표현하는 변수다.
-    enter_room_time = DateTime.parse(widget.enter_room_time);
-
-    //손님의 퇴실시간을 표현하는 변수다.
-    after_room_time = DateTime.parse(widget.exit_room_time);
-
-    //손님의 퇴실시간을 표현하는 변수다.
-    //after_room_time = enter_room_time.add(new Duration(days: differ_day));
-
-    print("booking_room initState 메소드 실행");
-    print(enter_room_time.toString().substring(0,10));
-    print(after_room_time.toString().substring(0,10));
-
-    entime_user_collection=enter_room_time.toString().substring(0,10);
-    left_user_collection=after_room_time.toString().substring(0,10);
-
-    print(after_room_time.difference(enter_room_time));
-
-    var differ=(after_room_time.difference(enter_room_time));
-    int data=differ.toString().indexOf(':');
-    print(differ.toString().substring(0,data));
-
-    differ_day=int.parse(differ.toString().substring(0,data));
-
-    differ_day=differ_day~/24;
-
-    print(differ_day);
-
-    //listen: Adds a subscription to this stream.
-    //내 생각 : 파이어베이스DB 의 데이터를 불러와주는 역할을 해주는 메소드
-    noteSub = db.getNoteList().listen((QuerySnapshot snapshot) {
-
-      //documents : Gets a list of all the documents included in this snapshot
-      final List<Note> notes = snapshot.documents
-          .map((documentSnapshot) => Note.fromMap(documentSnapshot.data,enter_room_time.toString(),after_room_time.toString(),differ_day))
-
-      //toList() : Creates a [List] containing the elements of this [Iterable].
-          .toList();
-
-      print("List 의 개수 ");
-      print(notes.length);
-      print("List 의 개수 2");
-      print(Note.document_id_list.length);
-
-
-
-      // setState : It is an error to call this method after the framework calls [dispose].
-      // 프레임 워크 호출 [dispose] 후에이 메소드를 호출하는 것은 오류입니다.
-      setState(() {
-        print("setState 함수 호출됨");
-        this.items = notes;
-      });
-
-
-
-    });
-
-    //이 조건문은 사용자가 선택한 방의유형을 초기화해준다.
-    if (widget.room_type == "0") {
-      room_type_image = "1호관1유형";
-    } else if (widget.room_type == "1") {
-      room_type_image = "1호관2유형";
-    } else if (widget.room_type == "2") {
-      room_type_image = "2호관1유형";
-    } else if (widget.room_type == "3") {
-      room_type_image = "2호관2유형";
+    if(widget.room_type=="0"){
+      guest_roomtype="1호관1유형";
+    }
+    else if(widget.room_type=="1"){
+      guest_roomtype="1호관2유형";
+    }
+    else if(widget.room_type=="3"){
+      guest_roomtype="2호관2유형";
     }
 
-    //이 조건문은 사용자가 예약을할 때 필요한 정보들(호텔,게스트 하우스식, 성별, 인원수 등등)을 초기화해주는 조건문이다.
-    if (Variable.sleep_type == "Hotel") {
-      //이 조건문은 사용자의 성별을 초기화해준다.
-      if (widget.guest_gender == "여자") {
-        widget.guest_gender = "여자";
-      } else if (widget.guest_gender != null) {
-        widget.guest_gender = "남자";
-      }
-
-      if (widget.guest_gender == "남자") {
-        field_name = "man";
-
-        if (widget.room_type == "0") {
-          field_name = field_name + '_three_hotel';
-        } else if (widget.room_type == "1") {
-          field_name = field_name + '_two_hotel';
-        }
-      } else if (widget.guest_gender == "여자") {
-        field_name = "woman";
-
-        if (widget.room_type == "1" || widget.room_type == "2") {
-          field_name = field_name + '_two_hotel';
-        } else if (widget.room_type == "0") {
-          field_name = field_name + '_three_hotel';
-        } else if (widget.room_type == "3") {
-          field_name = field_name + '_four_hotel';
-        }
-      }
-    } else if (Variable.sleep_type == "Guest_House") {
-      //이 조건문은 사용자의 성별을 초기화해준다.
-      if (widget.guest_gender == "여자") {
-        widget.guest_gender = "여자";
-      } else if (widget.guest_gender != null) {
-        widget.guest_gender = "남자";
-      }
-
-      if (widget.guest_gender == "남자") {
-        field_name = "man";
-
-        if (widget.room_type == "0") {
-          field_name = field_name + '_three_guesthouse';
-        } else if (widget.room_type == "1") {
-          field_name = field_name + '_two_guesthouse';
-        }
-      } else if (widget.guest_gender == "여자") {
-        field_name = "woman";
-
-        if (widget.room_type == "1" || widget.room_type == "2") {
-          field_name = field_name + '_two_guesthouse';
-        } else if (widget.room_type == "0") {
-          field_name = field_name + '_three_guesthouse';
-        } else if (widget.room_type == "3") {
-          field_name = field_name + '_four_guesthouse';
-        }
-      }
+    //사용자가 설정한 성별을 초기화해주는 조거문이다.
+    if(widget.guest_gender=="Gender.WOMEN"){
+      guest_gender="여자";
+    }
+    else if(widget.guest_gender=="Gender.MAN"){
+      guest_gender="남자";
     }
 
-    //현재시간을 표현하는 변수이다.
-    var now=DateTime.now();
-    String now_=now.toString();
-    now_=now_.substring(0,10);
 
-    now_time=now_;
+    if(guest_gender.contains("여자")){
+      customer_choice="woman";
+    }
+    else if(guest_gender.contains("남자")){
+      customer_choice="man";
+    }
 
-    //서버로부터 데이터 (호텔,모텔에 남은 자리수)를 받아오기위한 코드이다.
-    remain_seat = "";
+    if(guest_roomtype=="1호관1유형"){
+      customer_choice=customer_choice+"_three_";
+    }
+    else if(guest_roomtype=="1호관2유형"){
+      customer_choice=customer_choice+"_two_";
+    }
+    else if(guest_roomtype=="2호관2유형"){
+      customer_choice=customer_choice+"_four_";
+    }
+    if(widget.search_condition=="hotel"){
+      customer_choice=customer_choice+"hotel";
+    }
+    else if(widget.search_condition=="guest_house"){
+      customer_choice=customer_choice+"guesthouse";
+    }
 
-
-
-
-
-
+    print("customer_choice 값");
+    print(customer_choice);
 
   }
 
@@ -261,9 +123,6 @@ class _Booking_roomState extends State<Booking_room> {
   @override
   Widget build(BuildContext context) {
 
-    //사용자가 설정한 방의 타입이다.
-    var room_type_condtition;
-
     /////////////////   모든기기에서 위젯들의 크기, 배치가 동일하게 하기위해서 배율을 사용한다.    /////////////////
     //핸드폰 전체크기의 비율값
     double wi = getWidthRatio(360, context);
@@ -271,14 +130,13 @@ class _Booking_roomState extends State<Booking_room> {
 
     double ratio = (hi + wi) / 2;
 
+
+
     /////////////////   모든기기에서 위젯들의 크기, 배치가 동일하게 하기위해서 배율을 사용한다.    /////////////////
 
 
     return Scaffold(
         body: // Figma Flutter Generator Group2Widget - GROUP
-
-
-
 
         Container(
             width: 360 * wi,
@@ -338,7 +196,7 @@ class _Booking_roomState extends State<Booking_room> {
                                   top: 63 * hi,
                                   left: 14 * wi,
                                   child: Text(
-                                    widget.guest_gender,
+                                    guest_gender,
                                     textAlign: TextAlign.left,
                                     style: TextStyle(
                                         color: Color.fromRGBO(0, 0, 0, 1),
@@ -417,7 +275,7 @@ class _Booking_roomState extends State<Booking_room> {
                                     width: 333 * wi,
                                     height: 200 * hi,
                                     child: Image.asset(
-                                        "assets/images/$room_type_image.png"),
+                                        "assets/images/$guest_roomtype.png"),
                                   )),
                             ]))),
                     Positioned(
@@ -430,8 +288,8 @@ class _Booking_roomState extends State<Booking_room> {
 
                               print("예약하기 버튼을 누름"),
 
-                            Booking(),
 
+                             Bookingroom(),
 
 
                 }
@@ -506,1131 +364,351 @@ class _Booking_roomState extends State<Booking_room> {
     );
   }
 
-  //List 안의 데이터를 출력하는 메소드이다.
-  void printList(List<String> list) {
-    for(var i=0; i< list.length; i++) {
-      print(i);
-    }
-  }
-
-  void _updateEnter(DocumentSnapshot doc){
-    Firestore.instance.collection('Users').document(doc.documentID).updateData({'방 유형' : 1});
-  }
-
-  void Booking(){
-
-    //손님의 입실시간이다.
-    String enter_room_time_str;
-    //손님의 퇴실시간이다.
-    String after_room_time_str;
-    //게스트하우스식에서 사용자가 설정한 인원수
-    int supply_;
-    // 게스트하우스의 침대개수
-    int bed;
-    //Users 컬렉션에서 "인원" 필드에 추가하기위해 사용될 변수다.
-    String customer_supply_toserver;
-
-    //List 안의 Map 을 잠시담기위한 map
-    Map map1;
-    //Map 의 value 에 접근하기위해 있는 list
-    var list1;
-    //호텔의 남은 방의개수이다.
-    int remain_room;
-
-    //입실시간
-    var time= DateTime.parse(enter_room_time.toString().substring(0,10));
-
-    print(Note.day_docu_id.length);
-    Note.day_docu_id.forEach((k,v) => print('${k}: ${v}'));
-
-    print(widget.supply);
-    customer_supply_toserver=widget.supply.substring(0,1);
-
-
-    //서버에 오늘날짜가 없는경우의 조건이다.
-
-    print("예약하기 버튼 클릭");
-    print(Note.day_list.toString());
-
-    //if(Note.day_list.toString()=="[]"){
-    if(!Note.day_docu_id.containsKey(enter_room_time.toString().substring(0,10))){
-    print("서버에 오늘날짜가 없는경우의 조건");
-
-    print(field_name);
-
-    //사용자가 호텔을 예약했을 때 서버에 만들어지는 map들을 아래 조건문에서 설정한다.
-    if(field_name=="man_three_hotel"){
-    print("man_three_hotel");
-
-    make_map_str='{"man_three_guesthouse":"264", "man_three_hotel":"88","man_two_guesthouse":"6", "man_two_hotel":"3","woman_four_guesthouse":"80", "woman_four_hotel":"20","woman_three_guesthouse":"117","woman_three_hotel":"38","woman_two_guesthouse":"4","woman_two_hotel":"2"}';
-    print("에러로그1");
-    //오늘날짜를 필드로 만들어야 한다. map 의 형태로말이다. 예) 필드명 2020-03-01 안에 map 이 있어야함.
-    make_map = json.decode(make_map_str);
-    print("에러로그2");
-    }
-    else if(field_name=="man_two_hotel"){
-    print("man_two_hotel");
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'2',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-
-    }
-    else if(field_name=="woman_four_hotel"){
-    print("woman_four_hotel");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'19',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-
-    }
-    else if(field_name=="woman_three_hotel"){
-    print("woman_three_hotel");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'37',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-
-    }
-    else if(field_name=="woman_two_hotel"){
-    print("woman_two_hotel");
-
-    //오늘날짜를 필드로 만들어야 한다. map 의 형태로말이다. 예) 필드명 2020-03-01 안에 map 이 있어야함.
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'1'
-    };
-    };
-
-
-    print(widget.supply);
-    supply_=int.parse(widget.supply.substring(0,1));
-    print(supply_);
-
-    //check point
-
-    //사용자가 게스트하우스식으로 예약을 했을 때 서버에 저장될 map 의 형태를 설정한다.
-    if(field_name=="man_three_guesthouse"){
-    bed=264;
-    bed=bed-supply_;
-    print("man_three_guesthouse");
-
-    make_map = {
-    'man_three_guesthouse':'$bed', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-    }
-    else if(field_name=="man_two_guesthouse"){
-    bed=6;
-    bed=bed-supply_;
-    print("man_two_guesthouse");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'$bed', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-    }
-    else if(field_name=="woman_four_guesthouse"){
-    bed=80;
-    bed=bed-supply_;
-    print("woman_four_guesthouse");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'$bed', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-    }
-    else if(field_name=="woman_three_guesthouse"){
-    bed=117;
-    bed=bed-supply_;
-    print("woman_three_guesthouse");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'$bed','woman_three_hotel':'38',
-    'woman_two_guesthouse':'4','woman_two_hotel':'2'
-    };
-    }
-    else if(field_name=="woman_two_guesthouse"){
-    bed=4;
-    bed=bed-supply_;
-    print("woman_two_guesthouse");
-
-    make_map = {
-    'man_three_guesthouse':'264', 'man_three_hotel':'89',
-    'man_two_guesthouse':'6', 'man_two_hotel':'3',
-    'woman_four_guesthouse':'80', 'woman_four_hotel':'20',
-    'woman_three_guesthouse':'117','woman_three_hotel':'38',
-    'woman_two_guesthouse':'$bed','woman_two_hotel':'2'
-    };
-    };
-
-    for(int i=0;i<differ_day;i++){
-    print("for 문 실행됨");
-    print(differ_day);
-    //String a=enter_room_time.toString().substring(0,10),
-    if(i==0){
-    print("실행됨");
-    enter_room_time_=enter_room_time.add(new Duration(days: 0));
-    print(enter_room_time_.toString());
-    print(enter_room_time_.toString().substring(0,10));
-    db.createNote(make_map,enter_room_time_.toString().substring(0,10),after_room_time_str,0);
-    };
-    enter_room_time=enter_room_time.add(new Duration(days: 1));
-    enter_room_time_str=enter_room_time.toString();
-    after_room_time_str=after_room_time.toString();
-
-    print("enter_room_time_str 의 값 :"+enter_room_time_str);
-    print("after_room_time_str 의 값 :"+after_room_time_str);
-
-    if(enter_room_time_str!=after_room_time_str){
-    db.createNote(make_map,enter_room_time_str,after_room_time_str,1);
-    };
-
-    };
-
-
-    print("CurrentUser.login_user_uid 의 값 서버에 방이없는경우");
-    print(CurrentUser.login_user_uid);
-    print(enter_room_time.toString().substring(0,10));
-    print(after_room_time.toString().substring(0,10));
-
-    if(field_name=="man_three_guesthouse"){
-      room_type_user_collection="1";
-    }
-    else if(field_name=="man_three_hotel"){
-      room_type_user_collection="2";
-    }
-    else if(field_name=="man_two_guesthouse"){
-      room_type_user_collection="3";
-    }
-    else if(field_name=="man_two_hotel"){
-      room_type_user_collection="4";
-    }
-    else if(field_name=="woman_four_guesthouse"){
-      room_type_user_collection="5";
-    }
-    else if(field_name=="woman_four_hotel"){
-      room_type_user_collection="6";
-    }
-    else if(field_name=="woman_three_guesthouse"){
-      room_type_user_collection="7";
-    }
-    else if(field_name=="woman_three_hotel"){
-      room_type_user_collection="8";
-    }
-    else if(field_name=="woman_two_guesthouse"){
-      room_type_user_collection="9";
-    }
-    else if(field_name=="woman_two_hotel"){
-      room_type_user_collection="10";
-    }
-
-    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection,"인원":customer_supply_toserver});
-    }
-
-    //서버에 오늘날짜가 있는 경우의 조건이다.
-    else{
-    print("서버에 오늘날짜가 있는 경우");
-    print(Note.day_list);
-
-    //아래의 조건문은 DB의 데이터를 수정해주는 역할을 해주는 코드이다. 호텔식은 DB에서 방의개수가 -1되고 게스트하우스식은 사용자가 설정한 인원수만큼 DB에서 데이터가 차감된다.
-    if (Variable.sleep_type == "Hotel")
-    {
-    print("사용자가 설정한 숙박타입이 호텔인경우");
-    print(field_name);
-
-    //만약 예약자가 호텔 남자 삼인실을 예약한 경우.
-    if(field_name=="man_three_hotel"){
-
-
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['man_three_hotel']);
-
-
-
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][man_three_hotel]");
-      print(Note.day_list[i]["man_three_hotel"]);
-      check_absent_list.add(Note.day_list[i]["man_three_hotel"]);
-    }
-
-    if(check_absent_list.contains("0")){
-    print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-    //메인화면으로 이동시킨다.
-    break;
-    }
-    //만약 남자삼인실 호텔이 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-1;
-    print(remain_room);
-    Note.day_list[i].update("man_three_hotel", (v) => remain_room.toString());
-    print(Note.day_list[i]['man_three_hotel']);
-
-    print(Note.day_list[i]);
-    print("로그찍기2");
-
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    } //man_three_hotel end
-
-    //만약 예약자가 호텔 남자 이인실을 예약한 경우.
-    else if(field_name=="man_two_hotel"){
-
-
-    //사용자가 설정한 날짜들을 수정하기위해 존재하는 for문이다.
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['man_two_hotel']);
-
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][man_two_hotel]");
-      print(Note.day_list[i]["man_two_hotel"]);
-      check_absent_list.add(Note.day_list[i]["man_two_hotel"]);
-    }
-
-    if(check_absent_list.contains("0")){
-      print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-      //메인화면으로 이동시킨다.
-      break;
-    }
-
-    //만약 남자삼인실 호텔이 아예0 자리일경우
-    if(remain_room==0){
-    print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-    //메인화면으로 이동시킨다.
-    i=differ_day;
-    }
-    //만약 남자삼인실 호텔이 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-1;
-    print(remain_room);
-    Note.day_list[i].update("man_two_hotel", (v) => remain_room.toString());
-    print(Note.day_list[i]['man_two_hotel']);
-
-    print(Note.day_list[i]);
-    print("로그찍기2");
-
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    } //man_two_hotel end
-
-    //만약 예약자가 호텔 여자 이인실을 예약한 경우.
-    else if(field_name=="woman_two_hotel"){
-
-
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['woman_two_hotel']);
-
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][woman_two_hotel]");
-      print(Note.day_list[i]["woman_two_hotel"]);
-      check_absent_list.add(Note.day_list[i]["woman_two_hotel"]);
-    }
-
-    if(check_absent_list.contains("0")){
-      print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-      //메인화면으로 이동시킨다.
-      break;
-    }
-    //만약 남자삼인실 호텔이 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-1;
-    print(remain_room);
-    Note.day_list[i].update("woman_two_hotel", (v) => remain_room.toString());
-    print(Note.day_list[i]['woman_two_hotel']);
-
-    print(Note.day_list[i]);
-    print("로그찍기2");
-
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    } //woman_two_hotel end
-
-    //만약 예약자가 호텔 여자 삼인실을 예약한 경우.
-    else if(field_name=="woman_three_hotel"){
-
-
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['woman_three_hotel']);
-
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][woman_three_hotel]");
-      print(Note.day_list[i]["woman_three_hotel"]);
-      check_absent_list.add(Note.day_list[i]["woman_three_hotel"]);
-    }
-
-    if(check_absent_list.contains("0")){
-      print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-      //메인화면으로 이동시킨다.
-      break;
-    }
-
-    //만약 남자삼인실 호텔이 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-1;
-    print(remain_room);
-    Note.day_list[i].update("woman_three_hotel", (v) => remain_room.toString());
-    print(Note.day_list[i]['woman_three_hotel']);
-
-    print(Note.day_list[i]);
-    print("로그찍기2");
-
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    } //woman_three_hotel end
-
-    //만약 예약자가 호텔 여자 사인실을 예약한 경우.
-    else if(field_name=="woman_four_hotel"){
-
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['woman_four_hotel']);
-
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][woman_four_hotel]");
-      print(Note.day_list[i]["woman_four_hotel"]);
-      check_absent_list.add(Note.day_list[i]["woman_four_hotel"]);
-    }
-
-    if(check_absent_list.contains("0")){
-      print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-      //메인화면으로 이동시킨다.
-      break;
-    }
-    //만약 남자삼인실 호텔이 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-1;
-    print(remain_room);
-    Note.day_list[i].update("woman_four_hotel", (v) => remain_room.toString());
-    print(Note.day_list[i]['woman_four_hotel']);
-
-    print(Note.day_list[i]);
-    print("로그찍기2");
-
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    } //woman_four_hotel end
-
-    }   //호텔인 경우
-
-    else if (Variable.sleep_type == "Guest_House")
-    {
-
-    print("사용자가 게스트하우스식을 선택했다.");
-    print(field_name);
-    print("코드의 흐름1");
-    print(widget.supply);
-    widget.supply=widget.supply.replaceAll('명','');
-    supply=int.parse(widget.supply);
-    print("supply 의 값");
-    print(supply);
-
-
-    //만약 예약자가 게스트하우스식 남자 이인실을 예약한 경우.
-    if(field_name=="man_two_guesthouse"){
-
-
-    for(int i=0; i<differ_day; i++){
-    map1=Note.day_list[i];
-    print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-    remain_room=int.parse(Note.day_list[i]['man_two_guesthouse']);
-
-    print("게스트하우스식에서 man_two_guesthouse 에서 남은 침대의 수 ");
-    print(remain_room);
-
-    //서버에서 받아온 각 날짜별 게스트하우스의 남은 침대수가 충분한지 판단해주는 반복문이다. 만약 변수 check 가 "빈방없음" 으로 초기화되면 침대수가 모자른것이다.
-    for(int i=0;i<differ_day;i++){
-      print("Note.day_list[i][man_two_guesthouse]");
-      print(Note.day_list[i]["man_two_guesthouse"]);
-      check_absent_list.add(Note.day_list[i]["man_two_guesthouse"]);
-      int data=int.parse(check_absent_list[i]);
-      data-supply<=0;
-      if(data-supply<=0){
-        check="빈방없음";
+  //방을 예약, 예약수정을해주는 메소드이다.
+  void Bookingroom() async{
+    print("Bookingroom 메소드 진입");
+
+    //예약 및 예약수정의 절차
+    //1. 반복문으로 퇴실날짜 하루전까지 아래의 과정을 반복한다.
+    //2. 입실날짜명의로된 다큐먼트아이디를 FIrestore에서 검색한다.
+    //3. 만약 검색결과가 존재하지않는다면 사용자가 설정한 예약조건을 기반으로 Firestore에 데이터를 추가한다.
+    //4. 만약 검색결과가 존재한다면 사용자가 설정한 예약조건을 기반으로 Firestore에서 데이터를 차감시킨다.
+
+    print(widget.time_differ);
+    //사용자가 머무르는 날의 숫자다
+    int due=widget.time_differ;
+
+
+    print(due);
+
+    var time=DateTime.parse(widget.enter_room_time);
+    var time2=DateTime.parse(widget.enter_room_time);
+    print(widget.enter_room_time);
+    print(due);
+
+    //이 반복문은 손님이 설정한 날짜에 예약할 수 있는방이 있는지 체크하는 역할을 하는 반복문이다.
+    for(int i=0;i<due;i++) {
+
+      print("예약가능여부 반복문 시작");
+      if (i == 0) {
+        print("i=0 일때-1");
+        stop=await Find_zero2(time2);
+        print("stop 의 값");
+        print(stop);
+        if (stop == "자리없음") {
+          print("예약가능여부 서버와 통신 중단");
+
+          //호텔,게스트하우스식을 선택하는 화면으로 되돌아간다.
+          Navigator.push(context, MaterialPageRoute(builder: (context) => Hotel_motel_choice_()),);
+
+          //남은 방이 없는경우 토스트메세지를 띄운다.
+          Fluttertoast.showToast(
+              msg: "이런, 빈 방이 없습니다!!",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.CENTER,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0
+          );
+
+          break;
+        }
       }
-    }
+      else {
+        time2 = time2.add(new Duration(days: 1));
+        print("i=0 이 아닐때-1");
+        stop=await Find_zero2(time2);
+        print("stop 의 값");
+        print(stop);
+        if (stop == "자리없음") {
+          print("예약가능여부 서버와 통신 중단");
 
-    if(check=="빈방없음"){
-      print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-      //메인화면으로 이동시킨다.
-      break;
-    }
-    //만약 남자이인실 게스트하우스가 있는경우
-    else{
-    print("빈방이 있습니다.");
-    remain_room=remain_room-supply;
-    print(remain_room);
-    Note.day_list[i].update("man_two_guesthouse", (v) => remain_room.toString());
-    print(Note.day_list[i]['man_two_guesthouse']);
+          //호텔,게스트하우스식을 선택하는 화면으로 되돌아간다.
+          Navigator.push(context, MaterialPageRoute(builder: (context) => Hotel_motel_choice_()),);
 
-    print(Note.day_list[i]);
-    print("로그찍기2");
+          //남은 방이 없는경우 토스트메세지를 띄운다.
+          Fluttertoast.showToast(
+              msg: "이런, 빈 방이 없습니다!!",
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.CENTER,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0
+          );
 
-    print(enter_room_time.toString().substring(0,10));
-
-    //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-    if(i==0){
-    print("i가 0일때 "+i.toString());
-
-    print("Note.day_list.length 의 값");
-    print(Note.day_list.length);
-
-
-    db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-    print("Note.day_list.length-1 의 값");
-    print(Note.day_list.length-1);
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("날짜");
-    print(enter_room_time.toString().substring(0,10));
-    print("document id 의 값");
-    print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-    //sleep(const Duration(seconds:1)),
-    }
-    else if(i>=1){
-    print("i가 1이상일때 "+i.toString());
-    time=time.add(new Duration(days: 1));
-    print(time.toString().substring(0,10));
-    print("list 의 i 번째 값");
-    print(Note.day_list[i]);
-    print("document id 의 값");
-    print(Note.day_docu_id[time.toString().substring(0,10)]);
-    print("날짜");
-    print(time.toString().substring(0,10));
-    db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-    };
-
-
-    }   //else end
-
-    };    //for 문 끝
-
-    }; //man_two_guesthouse end
-
-    //만약 예약자가 게스트하우스식 남자 삼인실을 예약한 경우.
-    if(field_name=="man_three_guesthouse"){
-
-
-      for(int i=0; i<differ_day; i++){
-        map1=Note.day_list[i];
-        print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-        remain_room=int.parse(Note.day_list[i]['man_three_guesthouse']);
-
-        print("게스트하우스식에서 man_three_guesthouse 에서 남은 침대의 수 ");
-        print(remain_room);
-
-        //서버에서 받아온 각 날짜별 게스트하우스의 남은 침대수가 충분한지 판단해주는 반복문이다. 만약 변수 check 가 "빈방없음" 으로 초기화되면 침대수가 모자른것이다.
-        for(int i=0;i<differ_day;i++){
-          print("Note.day_list[i][man_three_guesthouse]");
-          print(Note.day_list[i]["man_three_guesthouse"]);
-          check_absent_list.add(Note.day_list[i]["man_three_guesthouse"]);
-          int data=int.parse(check_absent_list[i]);
-          data-supply<=0;
-          if(data-supply<=0){
-            check="빈방없음";
-          }
-        }
-
-        if(check=="빈방없음"){
-          print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-          //메인화면으로 이동시킨다.
           break;
         }
-        //만약 남자이인실 게스트하우스가 있는경우
-        else{
-          print("빈방이 있습니다.");
-          remain_room=remain_room-supply;
-          print(remain_room);
-          Note.day_list[i].update("man_three_guesthouse", (v) => remain_room.toString());
-          print(Note.day_list[i]['man_three_guesthouse']);
+      }
+      print("예약가능여부 반복문 끝");
+    }
 
-          print(Note.day_list[i]);
-          print("로그찍기2");
+    //1. 반복문으로 퇴실날짜 하루전까지 아래의 과정을 반복한다.
+    for(int i=0;i<due;i++){
+      print("for문 시작");
+      print(time);
 
-          print(enter_room_time.toString().substring(0,10));
+      if (stop == "자리없음") {
+        print("서버와 통신 중단");
+        break;
+      }
 
-          //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-          if(i==0){
-            print("i가 0일때 "+i.toString());
+      if(i==0){
+        print("i=0 일때-2");
+        Booking(time);
+      }
+      else{
+        time=time.add(new Duration(days: 1));
+        print("i=0 이 아닐때-2");
+        Booking(time);
+      }
 
-            print("Note.day_list.length 의 값");
-            print(Note.day_list.length);
+      print("for문 끝");
+    }
+  }
 
+  void Booking(var time){
+    print("Booking 메소드 시작");
 
-            db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-            print("Note.day_list.length-1 의 값");
-            print(Note.day_list.length-1);
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("날짜");
-            print(enter_room_time.toString().substring(0,10));
-            print("document id 의 값");
-            print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
+    just_one=0;
 
-            //sleep(const Duration(seconds:1)),
-          }
-          else if(i>=1){
-            print("i가 1이상일때 "+i.toString());
-            time=time.add(new Duration(days: 1));
+    Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).get() .then((DocumentSnapshot ds){
+      //만약 서버에 검색결과가 존재한다면
+      if(ds.exists){
+        print("이미 서버에 데이터가 존재한다.");
+        print("4. 만약 검색결과가 존재한다면 사용자가 설정한 예약조건을 기반으로 Firestore에서 데이터를 차감시킨다.");
+
+        print("time");
+        print(time);
+
+        //호텔에 관한데이터를 서버에 수정
+        if(widget.search_condition=="hotel" || widget.search_condition=="guest_house"){
+
+          String supply=widget.supply.substring(0,1);
+          print(supply);
+
+          //서버로부터 받아온 남은 자리수다
+          int remain = ds.data[customer_choice];
+
+          //사용자가 설정한 숙박 인원수이다.
+          int supply_int=int.parse(supply);
+
+          //만약 남은자리숫자가 고객이 원하는 자리수보다 부족하면 토스트메세지로 남은자리가 없다고 알려준다.
+          if(remain-supply_int<0){
+            print("서버에 빈방이 없다고 데이터가 옴");
             print(time.toString().substring(0,10));
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("document id 의 값");
-            print(Note.day_docu_id[time.toString().substring(0,10)]);
-            print("날짜");
-            print(time.toString().substring(0,10));
-            db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-          };
+            print(remain-supply_int);
 
+            //호텔,게스트하우스식을 선택하는 화면으로 되돌아간다.
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Hotel_motel_choice_()),);
 
-        }   //else end
+            //남은 방이 없는경우 토스트메세지를 띄운다.
+            Fluttertoast.showToast(
+                msg: "이런, 빈 방이 없습니다!!",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.CENTER,
+                backgroundColor: Colors.red,
+                textColor: Colors.white,
+                fontSize: 16.0
+            );
 
-      };    //for 문 끝
-
-    }; //man_three_guesthouse end
-
-    //만약 예약자가 게스트하우스식 여자 이인실을 예약한 경우.
-    if(field_name=="woman_two_guesthouse"){
-
-
-      for(int i=0; i<differ_day; i++){
-        map1=Note.day_list[i];
-        print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-        remain_room=int.parse(Note.day_list[i]['woman_two_guesthouse']);
-
-        print("게스트하우스식에서 woman_two_guesthouse 에서 남은 침대의 수 ");
-        print(remain_room);
-
-        //서버에서 받아온 각 날짜별 게스트하우스의 남은 침대수가 충분한지 판단해주는 반복문이다. 만약 변수 check 가 "빈방없음" 으로 초기화되면 침대수가 모자른것이다.
-        for(int i=0;i<differ_day;i++){
-          print("Note.day_list[i][woman_two_guesthouse]");
-          print(Note.day_list[i]["woman_two_guesthouse"]);
-          check_absent_list.add(Note.day_list[i]["woman_two_guesthouse"]);
-          int data=int.parse(check_absent_list[i]);
-          data-supply<=0;
-          if(data-supply<=0){
-            check="빈방없음";
           }
+          //만약 남은자리숫자가 충분하다면 예약을 진행한다.
+          else{
+            print("서버에 빈방이 남았다고 데이터가 옴");
+            print(customer_choice);
+            Firestore.instance.collection("Tongmyung_dormitory2").document(time.toString().substring(0,10)).updateData({customer_choice:remain-supply_int});
+
+            if(customer_choice=="man_three_guesthouse"){
+              users_room_type_for_update_data="1";
+            }
+            else if(customer_choice=="man_three_hotel"){
+              users_room_type_for_update_data="2";
+            }
+            else if(customer_choice=="man_two_guesthouse"){
+              users_room_type_for_update_data="3";
+            }
+            else if(customer_choice=="man_two_hotel"){
+              users_room_type_for_update_data="4";
+            }
+            else if(customer_choice=="woman_four_guesthouse"){
+              users_room_type_for_update_data="5";
+            }
+            else if(customer_choice=="woman_four_hotel"){
+              users_room_type_for_update_data="6";
+            }
+            else if(customer_choice=="woman_three_guesthouse"){
+              users_room_type_for_update_data="7";
+            }
+            else if(customer_choice=="woman_three_hotel"){
+              users_room_type_for_update_data="8";
+            }
+            else if(customer_choice=="woman_two_guesthouse"){
+              users_room_type_for_update_data="9";
+            }
+            else if(customer_choice=="woman_two_hotel"){
+              users_room_type_for_update_data="10";
+            }
+
+            Firestore.instance.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":widget.enter_room_time,"퇴실일":widget.exit_room_time,"인원":widget.supply.substring(0,1),"방 유형":users_room_type_for_update_data});
+
+            //호텔,게스트하우스식을 선택하는 화면으로 되돌아간다.
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Hotel_motel_choice_()),);
+
+            if(just_one==0){
+
+              //남은 방이 없는경우 토스트메세지를 띄운다.
+              Fluttertoast.showToast(
+                  msg: "예약을 완료했습니다! 예약정보는 마이페이지에서 확인가능합니다.",
+                  toastLength: Toast.LENGTH_SHORT,
+                  gravity: ToastGravity.CENTER,
+                  backgroundColor: Colors.green,
+                  textColor: Colors.white,
+                  fontSize: 16.0
+              );
+
+              just_one=1;
+            }
+
+
+
+          }
+
+
         }
 
-        if(check=="빈방없음"){
-          print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-          //메인화면으로 이동시킨다.
-          break;
-        }
-        //만약 남자이인실 게스트하우스가 있는경우
-        else{
-          print("빈방이 있습니다.");
-          remain_room=remain_room-supply;
-          print(remain_room);
-          Note.day_list[i].update("woman_two_guesthouse", (v) => remain_room.toString());
-          print(Note.day_list[i]['woman_two_guesthouse']);
-
-          print(Note.day_list[i]);
-          print("로그찍기2");
-
-          print(enter_room_time.toString().substring(0,10));
-
-          //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-          if(i==0){
-            print("i가 0일때 "+i.toString());
-
-            print("Note.day_list.length 의 값");
-            print(Note.day_list.length);
 
 
-            db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-            print("Note.day_list.length-1 의 값");
-            print(Note.day_list.length-1);
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("날짜");
-            print(enter_room_time.toString().substring(0,10));
-            print("document id 의 값");
-            print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
 
-            //sleep(const Duration(seconds:1)),
+      }
+      //만약 서버에 검색결과가 존재하지않는다면
+      else if(!ds.exists){
+        print("없따");
+        print("3. 만약 검색결과가 존재하지않는다면 사용자가 설정한 예약조건을 기반으로 Firestore에 데이터를 추가한다.");
+
+        //호텔에 관한데이터를 서버에 추가
+        if(widget.search_condition=="hotel"){
+          //사용자가 남자삼인실 호텔을 선택한 경우
+          if(guest_roomtype=="1호관1유형" && widget.guest_gender=="Gender.MAN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 88, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
           }
-          else if(i>=1){
-            print("i가 1이상일때 "+i.toString());
-            time=time.add(new Duration(days: 1));
-            print(time.toString().substring(0,10));
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("document id 의 값");
-            print(Note.day_docu_id[time.toString().substring(0,10)]);
-            print("날짜");
-            print(time.toString().substring(0,10));
-            db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-          };
-
-
-        }   //else end
-
-      };    //for 문 끝
-
-    }; //woman_two_guesthouse end
-
-    //만약 예약자가 게스트하우스식 여자 삼인실을 예약한 경우.
-    if(field_name=="woman_three_guesthouse"){
-
-
-      for(int i=0; i<differ_day; i++){
-        map1=Note.day_list[i];
-        print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-        remain_room=int.parse(Note.day_list[i]['woman_three_guesthouse']);
-
-        print("게스트하우스식에서 woman_three_guesthouse 에서 남은 침대의 수 ");
-        print(remain_room);
-
-        //서버에서 받아온 각 날짜별 게스트하우스의 남은 침대수가 충분한지 판단해주는 반복문이다. 만약 변수 check 가 "빈방없음" 으로 초기화되면 침대수가 모자른것이다.
-        for(int i=0;i<differ_day;i++){
-          print("Note.day_list[i][woman_three_guesthouse]");
-          print(Note.day_list[i]["woman_three_guesthouse"]);
-          check_absent_list.add(Note.day_list[i]["woman_three_guesthouse"]);
-          int data=int.parse(check_absent_list[i]);
-          data-supply<=0;
-          if(data-supply<=0){
-            check="빈방없음";
+          //사용자가 남자이인실 호텔을 선택한 경우
+          else if(guest_roomtype=="1호관2유형" && widget.guest_gender=="Gender.MAN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 2, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
           }
+          //사용자가 여자이인실 호텔을 선택한 경우
+          else if(guest_roomtype=="1호관2유형" && widget.guest_gender=="Gender.WOMEN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':1, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
+          }
+          //사용자가 여자삼인실 호텔을 선택한 경우
+          else if(guest_roomtype=="1호관1유형" && widget.guest_gender=="Gender.WOMEN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':37, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
+          }
+          //사용자가 여자사인실 호텔을 선택한 경우
+          else if(guest_roomtype=="2호관2유형" && widget.guest_gender=="Gender.WOMEN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 2, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':19, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
+          }
+
+
         }
 
-        if(check=="빈방없음"){
-          print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-          //메인화면으로 이동시킨다.
-          break;
-        }
-        //만약 남자이인실 게스트하우스가 있는경우
-        else{
-          print("빈방이 있습니다.");
-          remain_room=remain_room-supply;
-          print(remain_room);
-          Note.day_list[i].update("woman_three_guesthouse", (v) => remain_room.toString());
-          print(Note.day_list[i]['woman_three_guesthouse']);
+        //게스트하우스에 관한데이터를 서버에 추가
+        else if(widget.search_condition=="guest_house"){
 
-          print(Note.day_list[i]);
-          print("로그찍기2");
+          String supply=widget.supply.substring(0,1);
+          print(supply);
+          int supply_int=int.parse(supply);
 
-          print(enter_room_time.toString().substring(0,10));
-
-          //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-          if(i==0){
-            print("i가 0일때 "+i.toString());
-
-            print("Note.day_list.length 의 값");
-            print(Note.day_list.length);
-
-
-            db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-            print("Note.day_list.length-1 의 값");
-            print(Note.day_list.length-1);
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("날짜");
-            print(enter_room_time.toString().substring(0,10));
-            print("document id 의 값");
-            print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
-
-            //sleep(const Duration(seconds:1)),
+          //사용자가 남자삼인실 게스트하우스식을 선택한 경우
+          if(guest_roomtype=="1호관1유형" && widget.guest_gender=="Gender.MAN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264-supply_int,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
           }
-          else if(i>=1){
-            print("i가 1이상일때 "+i.toString());
-            time=time.add(new Duration(days: 1));
-            print(time.toString().substring(0,10));
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("document id 의 값");
-            print(Note.day_docu_id[time.toString().substring(0,10)]);
-            print("날짜");
-            print(time.toString().substring(0,10));
-            db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-          };
-
-
-        }   //else end
-
-      };    //for 문 끝
-
-    }; //woman_three_guesthouse end
-
-    //만약 예약자가 게스트하우스식 여자 사인실을 예약한 경우.
-    if(field_name=="woman_four_guesthouse"){
-
-
-      for(int i=0; i<differ_day; i++){
-        map1=Note.day_list[i];
-        print("booking_room 에서 for 문안에서 i 의 값 :"+i.toString());
-
-        remain_room=int.parse(Note.day_list[i]['woman_four_guesthouse']);
-
-        print("게스트하우스식에서 woman_four_guesthouse 에서 남은 침대의 수 ");
-        print(remain_room);
-
-        //서버에서 받아온 각 날짜별 게스트하우스의 남은 침대수가 충분한지 판단해주는 반복문이다. 만약 변수 check 가 "빈방없음" 으로 초기화되면 침대수가 모자른것이다.
-        for(int i=0;i<differ_day;i++){
-          print("Note.day_list[i][woman_four_guesthouse]");
-          print(Note.day_list[i]["woman_four_guesthouse"]);
-          check_absent_list.add(Note.day_list[i]["woman_four_guesthouse"]);
-          int data=int.parse(check_absent_list[i]);
-          data-supply<=0;
-          if(data-supply<=0){
-            check="빈방없음";
+          //사용자가 남자이인실 게스트하우스식을 선택한 경우
+          else if(guest_roomtype=="1호관2유형" && widget.guest_gender=="Gender.MAN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6-supply_int,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
           }
+          //사용자가 여자이인실 게스트하우스식을 선택한 경우
+          else if(guest_roomtype=="1호관2유형" && widget.guest_gender=="Gender.WOMEN"){
+
+            //현재 남은 침대의 수이다.
+            int remain=4;
+            if(supply_int-remain==0){
+              print("예약할 수 없습니다. 빈 침대가 없습니다.");
+
+              //호텔,게스트하우스식을 선택하는 화면으로 되돌아간다.
+              Navigator.push(context, MaterialPageRoute(builder: (context) => Hotel_motel_choice_()),);
+
+              //남은 방이 없는경우 토스트메세지를 띄운다.
+              Fluttertoast.showToast(
+                  msg: "이런, 빈 방이 없습니다!!",
+                  toastLength: Toast.LENGTH_SHORT,
+                  gravity: ToastGravity.CENTER,
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  fontSize: 16.0
+              );
+
+            }
+            else{
+              Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4-supply_int,'woman_three_guesthouse':117,'woman_four_guesthouse':80});
+            }
+
+          }
+          //사용자가 여자삼인실 게스트하우스식을 선택한 경우
+          else if(guest_roomtype=="1호관1유형" && widget.guest_gender=="Gender.WOMEN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117-supply_int,'woman_four_guesthouse':80});
+          }
+          //사용자가 여자사인실 게스트하우스식을 선택한 경우
+          else if(guest_roomtype=="2호관2유형" && widget.guest_gender=="Gender.WOMEN"){
+            Firestore.instance.collection('Tongmyung_dormitory2').document(time.toString().substring(0,10)).setData({ 'man_two_hotel': 3, 'man_three_hotel': 89, 'woman_two_hotel':2, 'woman_three_hotel':38, 'woman_four_hotel':20, 'man_two_guesthouse':6,'man_three_guesthouse':264,'woman_two_guesthouse':4,'woman_three_guesthouse':117,'woman_four_guesthouse':80-supply_int});
+          }
+
+
         }
 
-        if(check=="빈방없음"){
-          print("빈방이 없습니다. 라는 내용을 토스트메세지로 띄워준다.");
-          //메인화면으로 이동시킨다.
-          break;
-        }
-        //만약 남자이인실 게스트하우스가 있는경우
-        else{
-          print("빈방이 있습니다.");
-          remain_room=remain_room-supply;
-          print(remain_room);
-          Note.day_list[i].update("woman_four_guesthouse", (v) => remain_room.toString());
-          print(Note.day_list[i]['woman_four_guesthouse']);
+        //time=time.add(new Duration(days: 1));
+        print("time");
+        print(time);
+      }
 
-          print(Note.day_list[i]);
-          print("로그찍기2");
+    });
 
-          print(enter_room_time.toString().substring(0,10));
+    print("Booking 메소드 끝");
+  }
 
-          //이제 만들어진 map 을 기반으로 Firestore에 업데이트해야함.
-          if(i==0){
-            print("i가 0일때 "+i.toString());
+  Future<String> Find_zero2(var time) async {
+    print("Find_zero2 호출");
+    var order = await Find_zero3(time);
+    print("order 의 값");
+    print(order);
+    print("Find_zero2 종료");
+    return order;
+  }
 
-            print("Note.day_list.length 의 값");
-            print(Note.day_list.length);
+  Future<String> Find_zero3(var time){
+    print("Find_zero3 호출");
+    String sit="자리있음";
 
+    Firestore.instance.collection("Tongmyung_dormitory2").document(time.toString().substring(0,10)).get().then((DocumentSnapshot ds){
+      int remain = ds.data[customer_choice];
+      print("Find_zero3메소드에서 불러온 remain 의 값");
+      print(remain);
 
-            db.updateNote(Note(Note.day_docu_id[enter_room_time.toString().substring(0,10)],Note.day_list[Note.day_list.length-1],"a","b",1),enter_room_time.toString().substring(0,10),Note.day_list[i]);
-            print("Note.day_list.length-1 의 값");
-            print(Note.day_list.length-1);
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("날짜");
-            print(enter_room_time.toString().substring(0,10));
-            print("document id 의 값");
-            print(Note.day_docu_id[enter_room_time.toString().substring(0,10)]);
+      //사용자가 설정한 숙박 인원수이다.
+      int supply_int=int.parse(widget.supply.substring(0,1));
 
-            //sleep(const Duration(seconds:1)),
-          }
-          else if(i>=1){
-            print("i가 1이상일때 "+i.toString());
-            time=time.add(new Duration(days: 1));
-            print(time.toString().substring(0,10));
-            print("list 의 i 번째 값");
-            print(Note.day_list[i]);
-            print("document id 의 값");
-            print(Note.day_docu_id[time.toString().substring(0,10)]);
-            print("날짜");
-            print(time.toString().substring(0,10));
-            db.updateNote(Note(Note.day_docu_id[time.toString().substring(0,10)],Note.day_list[i],"a","b",1),time.toString().substring(0,10),Note.day_list[i]);
-          };
+      //기숙사에 남아있는 자리수가 사용자가 이용하려고하는 방 or 침대수 보다 작으면 예약을 할 수 없다.
+      if(remain-supply_int<0){
+        print("Find_zero3메소드에서 remain이 0인경우");
+        stop="자리없음";
+        sit="자리없음";
 
+        print("sit의 값");
+        print(sit);
+      }
 
-        }   //else end
-
-      };    //for 문 끝
-
-    }; //woman_four_guesthouse end
-
-    }
-
-    if(field_name=="man_three_guesthouse"){
-      room_type_user_collection="1";
-    }
-    else if(field_name=="man_three_hotel"){
-      room_type_user_collection="2";
-    }
-    else if(field_name=="man_two_guesthouse"){
-      room_type_user_collection="3";
-    }
-    else if(field_name=="man_two_hotel"){
-      room_type_user_collection="4";
-    }
-    else if(field_name=="woman_four_guesthouse"){
-      room_type_user_collection="5";
-    }
-    else if(field_name=="woman_four_hotel"){
-      room_type_user_collection="6";
-    }
-    else if(field_name=="woman_three_guesthouse"){
-      room_type_user_collection="7";
-    }
-    else if(field_name=="woman_three_hotel"){
-      room_type_user_collection="8";
-    }
-    else if(field_name=="woman_two_guesthouse"){
-      room_type_user_collection="9";
-    }
-    else if(field_name=="woman_two_hotel"){
-      room_type_user_collection="10";
-    }
-
-    String guest_supply="1";
-
-
-
-//    if(field_name=="man_two_guesthouse" || field_name=="woman_two_guesthouse"){
-//      guest_supply="2";
-//    }
-//    else if(field_name=="man_three_guesthouse" || field_name=="woman_three_guesthouse"){
-//      guest_supply="3";
-//    }
-//    else if(field_name=="woman_four_guesthouse"){
-//      guest_supply="4";
-//    }
-
-    print("CurrentUser.login_user_uid 의 값 서버에 방이 있는경우");
-    print(CurrentUser.login_user_uid);
-    print("customer_supply_toserver");
-    print(customer_supply_toserver);
-    firestore.collection("Users").document(CurrentUser.login_user_uid).updateData({"입실일":entime_user_collection,"퇴실일":left_user_collection,"방 유형":room_type_user_collection,"인원":customer_supply_toserver});
-    };
-
-    Navigator.pop(context);
-    //현재 화면을 스택에서 제거한다.
-    Navigator.pop(context);
+    });
+    print("Find_zero3 종료");
+    return Future.delayed(Duration(seconds: 1), () => sit);
   }
 
 }

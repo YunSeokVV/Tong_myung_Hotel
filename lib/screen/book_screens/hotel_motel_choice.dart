@@ -122,7 +122,7 @@ class _Hotel_motel_choice_State extends State<Hotel_motel_choice_> {
                     onTap: (){
                       Navigator.push(
                         context, MaterialPageRoute(
-                        builder: (context) => Book_room_stful(type:"XXXX",),
+                        builder: (context) => Book_room_stful(type:"hotel",),
                       ));//버튼이 눌리는 이벤트 발생 시, 다음 페이지에서 전달 받을 string 변수와 value('SecondRoute_Delivered')값을 직접 전달
 
                       variable.Sleep_Hotel();
@@ -164,7 +164,7 @@ class _Hotel_motel_choice_State extends State<Hotel_motel_choice_> {
                     onTap: (){
                       Navigator.push(
                           context, MaterialPageRoute(
-                        builder: (context) => Book_room_stful(type:"XXXX",),
+                        builder: (context) => Book_room_stful(type:"guest_house",),
                       ));//버튼이 눌리는 이벤트 발생 시, 다음 페이지에서 전달 받을 string 변수와 value('SecondRoute_Delivered')값을 직접 전달
 
                       variable.Sleep_Guest_house();

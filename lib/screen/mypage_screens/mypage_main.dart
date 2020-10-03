@@ -31,6 +31,15 @@ class _MyPageState extends State<MyPage> {
 
   void initState(){
       super.initState();
+
+
+
+      //사용자가 예약했던 기숙사의 남은방의 개수를 서버로부터 갖고온다.
+      //Load_remain();
+
+
+
+
   }
 
   FirebaseAuth auth = FirebaseAuth.instance;
@@ -59,6 +68,7 @@ class _MyPageState extends State<MyPage> {
   String _book; // 방 유형 숫자
   String _imageUrl; // 방 사진 url
   String _roomName; // 방 이름
+  String _roomName_eng; // 방 이름(영어버젼)
   Color green1 = Color.fromRGBO(133, 192, 64, 100);
   Color green2 =  Color.fromRGBO(57, 103, 66, 10);
 
@@ -191,33 +201,43 @@ class _MyPageState extends State<MyPage> {
               switch(_book) { // 방 유형 번호에 따른 방 이름 지정
                 case '1':
                   _roomName = '남성 3인 도미토리';
+                  _roomName_eng = "man_three_hotel";
                   break;
                 case '2':
                   _roomName = '남성 3인실';
+                  _roomName_eng = "man_three_guesthouse";
                   break;
                 case '3':
                   _roomName = '남성 2인 도미토리';
+                  _roomName_eng = "man_two_hotel";
                   break;
                 case '4':
                   _roomName = '남성 2인실';
+                  _roomName_eng = "man_two_guesthouse";
                   break;
                 case '5':
                   _roomName = '여성 4인 도미토리';
+                  _roomName_eng = "woman_four_hotel";
                   break;
                 case '6':
                   _roomName = '여성 4인실';
+                  _roomName_eng = "woman_four_guesthouse";
                   break;
                 case '7':
                   _roomName = '여성 3인 도미토리';
+                  _roomName_eng = "woman_three_hotel";
                   break;
                 case '8':
                   _roomName = '여성 3인실';
+                  _roomName_eng = "woman_three_guesthouse";
                   break;
                 case '9':
                   _roomName = '여성 2인 도미토리';
+                  _roomName_eng = "woman_two_hotel";
                   break;
                 case '10':
                   _roomName = '여성 2인실';
+                  _roomName_eng = "woman_two_guesthouse";
                   break;
               }
 
@@ -470,6 +490,10 @@ class _MyPageState extends State<MyPage> {
                                                                 onPressed: (){
                                                                  setState(() {
                                                                    Firestore.instance.collection('Users').document(_uid).updateData({'방 유형' :'0', '입실일':'','퇴실일':'','인원':''});
+                                                                   //예약취소 로직 ㄱ
+
+                                                                   //다시 남은 침대, 방의수를 증가시켜주는 메소드다.
+                                                                   //Update_remain();
                                                                  });
                                                                   Navigator.of(context).pop();
                                                                   Navigator.of(context).pop();
@@ -711,4 +735,77 @@ class _MyPageState extends State<MyPage> {
 
 
   }
+
+
+
+  //다시 남은 침대, 방의수를 증가시켜주는 메소드다.
+  void Update_remain() {
+    print("Update_remain 메소드 호출");
+
+    var _dateTime_exit_room_time=DateTime.parse(_checkOut);
+    var _dateTime_enter_room_time=DateTime.parse(_checkIn);
+
+    print(_dateTime_exit_room_time);
+    print(_dateTime_enter_room_time);
+
+    String time_differ=_dateTime_exit_room_time.difference(_dateTime_enter_room_time).toString();
+    print(time_differ);
+    int idx = time_differ.indexOf(":");
+    String gap = time_differ.substring(0, idx);
+    int time_differ_Integer=int.parse(gap);
+    time_differ_Integer=time_differ_Integer~/24;
+    print("퇴실일과 입실일의 차이");
+    print(time_differ_Integer);
+    print("_roomName_eng의 값");
+    print(_roomName_eng);
+
+    var time=_dateTime_enter_room_time;
+
+    for(int i=0;i<time_differ_Integer;i++){
+      Firestore.instance.collection("Tongmyung_dormitory2").document(time.toString().substring(0,10)).updateData({_roomName_eng:int.parse(_people)});
+
+      time = time.add(new Duration(days: 1));
+    }
+
+  }
+
+  //사용자가 예약한 방중에서 남은 침대, 방의수를 증가시켜주는 메소드다.
+  void Load_remain() {
+    print("Load_remain 메소드 호출");
+
+    var _dateTime_exit_room_time=DateTime.parse(_checkOut);
+    var _dateTime_enter_room_time=DateTime.parse(_checkIn);
+
+    print(_dateTime_exit_room_time);
+    print(_dateTime_enter_room_time);
+
+    String time_differ=_dateTime_exit_room_time.difference(_dateTime_enter_room_time).toString();
+    print(time_differ);
+    int idx = time_differ.indexOf(":");
+    String gap = time_differ.substring(0, idx);
+    int time_differ_Integer=int.parse(gap);
+    time_differ_Integer=time_differ_Integer~/24;
+    print("퇴실일과 입실일의 차이");
+    print(time_differ_Integer);
+    print("_roomName_eng의 값");
+    print(_roomName_eng);
+
+    var time=_dateTime_enter_room_time;
+
+    for(int i=0;i<time_differ_Integer;i++){
+      print("Load_remain 메소드에서 for문 시작");
+      //Firestore.instance.collection("Tongmyung_dormitory2").document(time.toString().substring(0,10)).updateData({_roomName_eng:int.parse(_people)});
+
+      Firestore.instance.collection("Tongmyung_dormitory2").document(time.toString().substring(0,10)).get().then((DocumentSnapshot ds){
+        int remain = ds.data["_roomName_eng"];
+        print(remain);
+      });
+
+      time = time.add(new Duration(days: 1));
+      print("Load_remain 메소드에서 for문 끝");
+    }
+
+  }
+
+
 }

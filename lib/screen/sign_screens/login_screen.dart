@@ -6,12 +6,15 @@ import 'package:tong_myung_hotel/widgets/custom-widget-tabs.widget.dart';
 
 import '../book_screens/select_booking_condition.dart';
 
+//현재 로그인한 사용자의 UID를 보고싶다면 current_State로 갈것.
+
 enum LoginType{
   email,
   google,
 }
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
+
   //final globalKey = GlobalKey<ScaffoldState>();
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -35,7 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _returnString = await _currentUser.loginUserWithEmail(email, password);
 
 
-          print(_currentUser.getCurrentUID());
           break;
         case LoginType.google:
 
@@ -45,12 +47,11 @@ class _LoginScreenState extends State<LoginScreen> {
         default:
       }
 
-
       if (_returnString == 'success') {
-        print("uid 찾기8");
+
         Navigator.of(context)
             .push(MaterialPageRoute(builder: (context) => CustomWidgetExample()));
-        print("uid 찾기9");
+
       }else{
 //        Scaffold.of(context).showSnackBar(
 //            SnackBar(

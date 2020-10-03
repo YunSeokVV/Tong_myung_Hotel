@@ -86,6 +86,8 @@ class CurrentUser extends ChangeNotifier {
         _uid = _authResult.user.uid;
 
         login_user_uid=_uid;
+        print("login_user_uid");
+        print(login_user_uid);
         _email = _authResult.user.email;
         retVal = 'success';
 
@@ -116,6 +118,8 @@ class CurrentUser extends ChangeNotifier {
       if(_authResult.user != null){
         _uid = _authResult.user.uid;
         login_user_uid=_uid;
+        print("login_user_uid");
+        print(login_user_uid);
         _email = _authResult.user.email;
         retVal = 'success';
       }

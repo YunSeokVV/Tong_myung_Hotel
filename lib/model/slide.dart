@@ -40,11 +40,11 @@ final woman_type = [
     title: '',
     description: '',
   ),
-  Slide(
-    imageUrl: 'assets/images/2호관1유형.png',
-    title: '',
-    description: '',
-  ),
+//  Slide(
+//    imageUrl: 'assets/images/2호관1유형.png',
+//    title: '',
+//    description: '',
+//  ),
   Slide(
     imageUrl: 'assets/images/2호관2유형.png',
     title: '',
