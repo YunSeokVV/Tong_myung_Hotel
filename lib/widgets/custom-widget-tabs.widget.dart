@@ -3,6 +3,7 @@ import 'package:persistent_bottom_nav_bar/persistent-tab-view.dart';
 import 'package:tong_myung_hotel/screen/book_screens/hotel_motel_choice.dart';
 import 'package:tong_myung_hotel/screen/mypage_screens/mypage_main.dart';
 import 'package:tong_myung_hotel/screen/reviews_screens/review_main.dart';
+import 'package:tong_myung_hotel/screen/reviews_screens/reviewList.dart';
 
 import 'custom-widget.dart';
 

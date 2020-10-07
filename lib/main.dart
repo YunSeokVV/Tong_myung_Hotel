@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:tong_myung_hotel/screen/reviews_screens/review_main.dart';
 import 'package:tong_myung_hotel/screen/sign_screens/login_screen.dart';
 import 'package:tong_myung_hotel/screen/sign_screens/sign_main.dart';
 import 'package:tong_myung_hotel/screen/sign_screens/signup_screen.dart';
@@ -46,6 +47,7 @@ class MyApp extends StatelessWidget {
           LoginScreen.routeName: (ctx) => LoginScreen(),
           SignupScreen.routeName: (ctx) => SignupScreen(),
           '/home' : (BuildContext context) => new GettingStartedScreen(),
+          '/review' : (BuildContext context)=> new Review(),
         },
       ),
     );
